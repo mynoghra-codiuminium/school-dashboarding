@@ -85,7 +85,7 @@ export default function Login() {
             <div style={{fontFamily:"'Space Mono',monospace",fontSize:8.5,fontWeight:700,color:'var(--red)',letterSpacing:'.2em',textTransform:'uppercase',marginBottom:12,borderBottom:'2px solid var(--red)',paddingBottom:4,display:'inline-block'}}>
               Staff Access
             </div>
-            <div className="login-h">Welcome<br/>back.</div>
+            <div className="login-h">Welcome<br/>Titans!</div>
             <div className="login-s">Sign in to your account to continue</div>
           </div>
 
