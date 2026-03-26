@@ -71,7 +71,7 @@ export default function Login() {
           <div style={{display:'flex',alignItems:'center',gap:10,marginTop:36}}>
             <div style={{width:20,height:2,background:'var(--red)'}}/>
             <div style={{fontFamily:"'Space Mono',monospace",fontSize:8.5,color:'rgba(245,242,236,.22)',letterSpacing:'.14em',textTransform:'uppercase'}}>
-              S.Y. 2025–2026
+              Since March 2026
             </div>
           </div>
         </div>
