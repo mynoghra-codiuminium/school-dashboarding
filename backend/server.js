@@ -79,8 +79,25 @@ app.use((err, req, res, next) => {
 // ── Connect & listen ───────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log('✅ MongoDB connected');
+  .then(async () => {
+  console.log('✅ MongoDB connected');
+
+  // Auto-seed admin on first boot if env vars are set
+  if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
+    const User = require('./models/User');
+    const exists = await User.findOne({ email: process.env.ADMIN_EMAIL });
+    if (!exists) {
+      await User.create({
+        name: process.env.ADMIN_NAME || 'School Administrator',
+        email: process.env.ADMIN_EMAIL,
+        password: process.env.ADMIN_PASSWORD,
+        role: 'admin',
+        mustChangePassword: true,
+      });
+      console.log('✅ Admin account auto-created:', process.env.ADMIN_EMAIL);
+    }
+  }
+  
     app.listen(PORT, () => console.log(`🚀 Server on port ${PORT} [${process.env.NODE_ENV || 'development'}]`));
   })
   .catch(err => { console.error('❌ MongoDB error:', err.message); process.exit(1); });
