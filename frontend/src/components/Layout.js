@@ -4,6 +4,89 @@ import {useAuth} from '../context/AuthContext';
 import {Icon,getInitials,getAvatarColor} from './UI';
 import {useSchoolYear} from '../context/SchoolYearContext';
 import {useShortcuts, SHORTCUT_LIST} from '../hooks/useShortcuts';
+import api from '../api';
+
+/* ── Real-time notification builder ───────────────────────── */
+function useNotifications() {
+  const [notifs, setNotifs] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    try {
+      // Fetch overdue fees, low-attendance students, and pending clearances in parallel
+      const [feesRes, studentsRes, clearanceRes] = await Promise.allSettled([
+        api.get('/fees'),
+        api.get('/students', { params: { limit: 200 } }),
+        api.get('/shs/clearances'),
+      ]);
+
+      const built = [];
+
+      // Overdue fees
+      if (feesRes.status === 'fulfilled') {
+        const overdue = (feesRes.value.data?.fees || feesRes.value.data || [])
+          .filter(f => f.status === 'Overdue');
+        overdue.slice(0, 3).forEach(f => {
+          built.push({
+            id: `fee-${f._id}`,
+            t: 'Fee Payment Overdue',
+            b: `${f.studentName || f.name || 'Student'} — ₱${(f.due||f.amount||0).toLocaleString()} overdue`,
+            dot: 'var(--rose)',
+            link: '/fees',
+          });
+        });
+        if (overdue.length > 3) {
+          built.push({ id:'fee-more', t:'Fee Payments Overdue', b:`${overdue.length} students have overdue payments`, dot:'var(--rose)', link:'/fees' });
+        }
+      }
+
+      // Low attendance (below 85%)
+      if (studentsRes.status === 'fulfilled') {
+        const students = studentsRes.value.data?.students || studentsRes.value.data || [];
+        const lowAtt = students.filter(s => s.status === 'Active' && s.attendance < 85);
+        lowAtt.slice(0, 2).forEach(s => {
+          built.push({
+            id: `att-${s._id}`,
+            t: 'Low Attendance Alert',
+            b: `${s.name} — ${s.attendance}% this month`,
+            dot: 'var(--amber)',
+            link: '/students',
+          });
+        });
+        if (lowAtt.length > 2) {
+          built.push({ id:'att-more', t:'Low Attendance Alert', b:`${lowAtt.length} students below 85% attendance`, dot:'var(--amber)', link:'/students' });
+        }
+      }
+
+      // Pending clearances
+      if (clearanceRes.status === 'fulfilled') {
+        const clearances = clearanceRes.value.data || [];
+        const pending = clearances.filter(c => c.overallStatus !== 'Cleared');
+        if (pending.length > 0) {
+          built.push({
+            id: 'clearance',
+            t: 'Clearance Pending',
+            b: `${pending.length} student${pending.length > 1 ? 's' : ''} awaiting sign-off`,
+            dot: 'var(--teal)',
+            link: '/shs/clearance',
+          });
+        }
+      }
+
+      setNotifs(built);
+    } catch { setNotifs([]); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => {
+    load();
+    // Refresh every 5 minutes
+    const interval = setInterval(load, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [load]);
+
+  return { notifs, loading, reload: load };
+}
 
 // Role-based nav — returns items visible to the current role
 function getNav(role) {
@@ -60,12 +143,6 @@ const TITLES={
   '/shs/behavior':'Behavior Log',
 };
 
-const NOTIFS=[
-  {t:'Fee Payment Overdue',b:'Carlos Mendoza — ₱15,000 overdue',time:'2h ago',dot:'var(--rose)'},
-  {t:'Low Attendance Alert',b:'Paolo Villanueva — 85% this month',time:'5h ago',dot:'var(--amber)'},
-  {t:'Clearance Pending',b:'3 Grade 12 students awaiting sign-off',time:'1d ago',dot:'var(--teal)'},
-];
-
 const MOBILE_BP=767;
 const isMobileNow=()=>window.innerWidth<=MOBILE_BP;
 
@@ -80,6 +157,7 @@ export default function Layout(){
   const [notif,setNotif]=useState(false);
   const [scrolled,setScrolled]=useState(false);
   const [shortcutsOpen,setShortcutsOpen]=useState(false);
+  const { notifs, loading: nLoading } = useNotifications();
 
   useEffect(()=>{
     const fn=()=>{const m=isMobileNow();setIsMobile(m);if(!m)setOpen(true);};
@@ -164,21 +242,36 @@ export default function Layout(){
             <div style={{position:'relative'}} ref={nref}>
               <button className="tb-btn" onClick={()=>setNotif(v=>!v)}>
                 <Icon name="bell" size={16}/>
-                <div className="tb-ndot">{NOTIFS.length}</div>
+                {notifs.length>0&&<div className="tb-ndot">{notifs.length}</div>}
               </button>
               {notif&&(
                 <div className="np">
                   <div className="np-h">
                     <span className="np-ht">Notifications</span>
-                    <span className="tag ty" style={{fontSize:10}}>{NOTIFS.length} new</span>
+                    {notifs.length>0&&<span className="tag ty" style={{fontSize:10}}>{notifs.length} new</span>}
                   </div>
-                  {NOTIFS.map((n,i)=>(
-                    <div key={i} className="np-row">
+                  {nLoading&&<div style={{padding:'18px',color:'var(--ink4)',fontSize:13,textAlign:'center'}}>Loading…</div>}
+                  {!nLoading&&notifs.length===0&&(
+                    <div style={{padding:'24px 18px',color:'var(--ink4)',fontSize:13,textAlign:'center'}}>
+                      <div style={{fontSize:22,marginBottom:8}}>✓</div>
+                      All clear — no alerts right now
+                    </div>
+                  )}
+                  {!nLoading&&notifs.map((n,i)=>(
+                    <div key={n.id||i} className="np-row" style={{cursor:n.link?'pointer':'default'}}
+                      onClick={()=>{if(n.link){navigate(n.link);setNotif(false);}}}>
                       <div className="np-dot" style={{background:n.dot}}/>
-                      <div><div className="np-t">{n.t}</div><div className="np-b">{n.b}</div><div className="np-tm">{n.time}</div></div>
+                      <div><div className="np-t">{n.t}</div><div className="np-b">{n.b}</div></div>
                     </div>
                   ))}
-                  <div className="np-ft"><button className="btn btno bsm" style={{width:'100%',justifyContent:'center'}}>View all</button></div>
+                  {!nLoading&&notifs.length>0&&(
+                    <div className="np-ft">
+                      <button className="btn btno bsm" style={{width:'100%',justifyContent:'center'}}
+                        onClick={()=>{navigate('/fees');setNotif(false);}}>
+                        View all alerts
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
