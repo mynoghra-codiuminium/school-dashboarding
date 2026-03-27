@@ -472,23 +472,52 @@ export function WorkImmersion() {
 // ─── Behavior Log ─────────────────────────────────────────────────────────────
 const INCIDENT_TYPES = ['Tardiness','Absences','Dress Code','Disruption','Bullying','Vandalism','Cheating','Misconduct','Positive Behavior','Award/Recognition'];
 
-const INITIAL_INCIDENTS = [];
-
 const SEV_COLOR = { Minor:'var(--amber)', Moderate:'var(--orange)', Severe:'var(--rose)', Positive:'var(--green)' };
 
 export function BehaviorLog() {
-  const [incidents, setIncidents] = useState(INITIAL_INCIDENTS);
-  const [modal, setModal]   = useState(false);
-  const [filter, setFilter] = useState('All');
-  const [form, setForm]     = useState({ student:'', grade:'Grade 11', strand:'STEM', type:'Tardiness', date:'', severity:'Minor', action:'', notes:'' });
+  const [incidents, setIncidents] = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [modal, setModal]         = useState(false);
+  const [filter, setFilter]       = useState('All');
+  const [form, setForm]           = useState({ student:'', grade:'Grade 11', strand:'STEM', type:'Tardiness', date:'', severity:'Minor', action:'', notes:'' });
 
-  const save = () => {
-    setIncidents(inc => [{ ...form, id: Date.now(), resolved: false }, ...inc]);
-    setModal(false);
-    setForm({ student:'', grade:'Grade 11', strand:'STEM', type:'Tardiness', date:'', severity:'Minor', action:'', notes:'' });
+  const load = async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get('/shs/incidents');
+      setIncidents(Array.isArray(data) ? data : []);
+    } catch { setIncidents([]); }
+    finally { setLoading(false); }
   };
 
-  const toggleResolve = (id) => setIncidents(inc => inc.map(i => i.id === id ? { ...i, resolved: !i.resolved } : i));
+  useEffect(() => { load(); }, []);
+
+  const save = async () => {
+    try {
+      await api.post('/shs/incidents', {
+        studentName: form.student,
+        grade: form.grade,
+        strand: form.strand,
+        type: form.type,
+        date: form.date,
+        severity: form.severity,
+        actionTaken: form.action,
+        notes: form.notes,
+        status: 'Open',
+      });
+      setModal(false);
+      setForm({ student:'', grade:'Grade 11', strand:'STEM', type:'Tardiness', date:'', severity:'Minor', action:'', notes:'' });
+      load();
+    } catch (err) { alert('Failed to save: ' + (err.response?.data?.message || err.message)); }
+  };
+
+  const toggleResolve = async (inc) => {
+    try {
+      await api.put(`/shs/incidents/${inc._id}`, { status: inc.status === 'Resolved' ? 'Open' : 'Resolved' });
+      load();
+    } catch { alert('Failed to update status.'); }
+  };
+
   const rows = filter === 'All' ? incidents : incidents.filter(i => i.severity === filter);
   const F = k => ({ value: form[k] || '', onChange: e => setForm(f => ({ ...f, [k]: e.target.value })) });
 
@@ -512,33 +541,34 @@ export function BehaviorLog() {
         <button className="btn btnp bsm" onClick={() => setModal(true)}><Icon name="plus" size={14}/> Log Incident</button>
       </div>
       <div className="card">
+        {loading ? <Spinner/> : (
         <div className="tw">
           <table className="tbl">
             <thead><tr><th>Student</th><th>Incident Type</th><th>Date</th><th>Severity</th><th>Action Taken</th><th>Status</th></tr></thead>
             <tbody>
               {rows.map((inc, i) => (
-                <tr key={inc.id} style={{animation:`fadeUp .35s ${i*40}ms both`}}>
+                <tr key={inc._id} style={{animation:`fadeUp .35s ${i*40}ms both`}}>
                   <td>
-                    <div style={{fontWeight:600,color:'var(--ink)',fontSize:13.5}}>{inc.student}</div>
+                    <div style={{fontWeight:600,color:'var(--ink)',fontSize:13.5}}>{inc.studentName}</div>
                     <div style={{fontSize:11.5,color:'var(--ink4)'}}>{inc.grade} · {inc.strand}</div>
                   </td>
                   <td style={{color:'var(--ink2)',fontSize:13}}>{inc.type}</td>
-                  <td style={{fontSize:12,color:'var(--ink4)',fontFamily:"'Space Mono',monospace"}}>{inc.date}</td>
+                  <td style={{fontSize:12,color:'var(--ink4)',fontFamily:"'Space Mono',monospace"}}>{inc.date ? new Date(inc.date).toLocaleDateString() : '—'}</td>
                   <td>
                     <span style={{fontSize:12,fontWeight:600,color:SEV_COLOR[inc.severity]||'var(--ink3)',background:`${SEV_COLOR[inc.severity]||'var(--ink3)'}18`,padding:'2px 8px',borderRadius:4}}>
                       {inc.severity}
                     </span>
                   </td>
-                  <td style={{color:'var(--ink3)',fontSize:13}}>{inc.action}</td>
+                  <td style={{color:'var(--ink3)',fontSize:13}}>{inc.actionTaken || '—'}</td>
                   <td>
-                    <button onClick={() => toggleResolve(inc.id)}
+                    <button onClick={() => toggleResolve(inc)}
                       style={{fontSize:12,fontWeight:600,padding:'3px 10px',border:'1px solid',cursor:'pointer',
-                        background:inc.resolved?'rgba(35,107,60,.1)':'var(--sur)',
-                        color:inc.resolved?'var(--green)':'var(--ink4)',
-                        borderColor:inc.resolved?'rgba(35,107,60,.3)':'var(--bdr3)',
+                        background:inc.status==='Resolved'?'rgba(35,107,60,.1)':'var(--sur)',
+                        color:inc.status==='Resolved'?'var(--green)':'var(--ink4)',
+                        borderColor:inc.status==='Resolved'?'rgba(35,107,60,.3)':'var(--bdr3)',
                         transition:'all .2s',
                       }}>
-                      {inc.resolved ? '✓ Resolved' : 'Pending'}
+                      {inc.status === 'Resolved' ? '✓ Resolved' : 'Pending'}
                     </button>
                   </td>
                 </tr>
@@ -547,6 +577,7 @@ export function BehaviorLog() {
           </table>
           {!rows.length && <div className="empty"><div className="empty-t">No incidents recorded</div></div>}
         </div>
+        )}
       </div>
 
       {modal && (

@@ -265,6 +265,9 @@ export default function Dashboard(){
 
   const {students,teachers,fees,academics,upcomingEvents,recentAnnouncements,recentStudents,strandCounts=[],monthlyAttendance=[]}=stats;
   const feeData=[60,72,68,80,75,85,78,88,82,Math.round((fees.collected/(fees.collected+fees.due||1))*100)||85];
+  const attData = monthlyAttendance.length
+    ? monthlyAttendance.map(m => Math.round(m.avg))
+    : [0,0,0,0,0,0,0,0,0,academics.avgAttendance||0];
 
   /* Strand enrollment — real data from DB, with color rotation */
   const STRAND_COLORS=['var(--amber)','var(--teal)','var(--violet)','var(--rose)','var(--sky)','var(--green)','var(--orange)'];

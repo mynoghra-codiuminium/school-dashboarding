@@ -51,12 +51,18 @@ router.get('/stats', async (req, res) => {
       { $sort: { count: -1 } },
     ]);
 
-    // Monthly attendance: average attendance grouped by enrollment month
+    // Monthly attendance: average attendance per calendar month (last 8 months)
+    const eightMonthsAgo = new Date();
+    eightMonthsAgo.setMonth(eightMonthsAgo.getMonth() - 7);
+    eightMonthsAgo.setDate(1);
+    eightMonthsAgo.setHours(0,0,0,0);
+
     const monthlyAttendance = await Student.aggregate([
-      { $match: { status: 'Active' } },
+      { $match: { status: 'Active', createdAt: { $gte: eightMonthsAgo } } },
       { $group: {
           _id: { $month: '$createdAt' },
-          avg: { $avg: '$attendance' }
+          avg: { $avg: '$attendance' },
+          count: { $sum: 1 }
       }},
       { $sort: { '_id': 1 } },
     ]);
