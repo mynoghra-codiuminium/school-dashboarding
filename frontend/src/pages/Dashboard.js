@@ -101,9 +101,15 @@ function HBar({label,val,max,color,index=0}){
 }
 
 /* ── Attendance bar chart ──────────────────────────────── */
-function AttendanceChart({avgAttendance}){
-  const months=['Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar'];
-  const values=[88,91,94,89,92,96,91,avgAttendance||93];
+function AttendanceChart({avgAttendance, monthlyAttendance=[]}) {
+  const MONTH_NAMES=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  // Build months/values from real DB data; fall back gracefully if empty
+  const months = monthlyAttendance.length
+    ? monthlyAttendance.map(m => MONTH_NAMES[m._id - 1])
+    : ['Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar'];
+  const values = monthlyAttendance.length
+    ? monthlyAttendance.map(m => Math.round(m.avg))
+    : [0,0,0,0,0,0,0,avgAttendance||0];
   const [show,setShow]=useState(false);
   const chartRef=useRef(null);
   const [chartPx,setChartPx]=useState(160);
@@ -257,19 +263,15 @@ export default function Dashboard(){
   if(loading)return <Spinner/>;
   if(!stats)return <div className="errmsg">Failed to load dashboard. Check backend connection.</div>;
 
-  const {students,teachers,fees,academics,upcomingEvents,recentAnnouncements,recentStudents}=stats;
-  const attData=[88,91,94,89,92,96,91,93,95,academics.avgAttendance||94];
+  const {students,teachers,fees,academics,upcomingEvents,recentAnnouncements,recentStudents,strandCounts=[],monthlyAttendance=[]}=stats;
   const feeData=[60,72,68,80,75,85,78,88,82,Math.round((fees.collected/(fees.collected+fees.due||1))*100)||85];
 
-  /* Strand enrollment data */
-  const strandData=[
-    {label:'STEM',val:32,color:'var(--amber)'},
-    {label:'ABM',val:28,color:'var(--teal)'},
-    {label:'HUMSS',val:24,color:'var(--violet)'},
-    {label:'GAS',val:18,color:'var(--rose)'},
-    {label:'TVL',val:15,color:'var(--sky)'},
-  ];
-  const maxStrand=Math.max(...strandData.map(s=>s.val));
+  /* Strand enrollment — real data from DB, with color rotation */
+  const STRAND_COLORS=['var(--amber)','var(--teal)','var(--violet)','var(--rose)','var(--sky)','var(--green)','var(--orange)'];
+  const strandData = strandCounts.length
+    ? strandCounts.map((s,i)=>({ label: s._id, val: s.count, color: STRAND_COLORS[i % STRAND_COLORS.length] }))
+    : [];
+  const maxStrand=strandData.length ? Math.max(...strandData.map(s=>s.val)) : 1;
 
   return(
     <div>
@@ -317,7 +319,7 @@ export default function Dashboard(){
       {/* ── Row 2: Charts ── */}
       <div className="g2 mb14 fu d3" style={{alignItems:"stretch",height:340}}>
         {/* Attendance Chart */}
-        <AttendanceChart avgAttendance={academics.avgAttendance}/>
+        <AttendanceChart avgAttendance={academics.avgAttendance} monthlyAttendance={monthlyAttendance}/>
 
         {/* Strand Enrollment */}
         <div className="card" style={{display:'flex',flexDirection:'column'}}>
@@ -326,7 +328,10 @@ export default function Dashboard(){
             <span className="tag tgr" style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:10}}>{syConfig.schoolYear}</span>
           </div>
           <div className="cb" style={{paddingTop:8,flex:1,display:'flex',flexDirection:'column',justifyContent:'space-evenly'}}>
-            {strandData.map((s,i)=><HBar key={s.label} index={i} label={s.label} val={s.val} max={maxStrand} color={s.color}/>)}
+            {strandData.length
+              ? strandData.map((s,i)=><HBar key={s.label} index={i} label={s.label} val={s.val} max={maxStrand} color={s.color}/>)
+              : <div style={{color:'var(--ink4)',fontSize:13,padding:'20px 0',textAlign:'center'}}>No enrolled students yet</div>
+            }
           </div>
         </div>
       </div>

@@ -44,6 +44,23 @@ router.get('/stats', async (req, res) => {
       ? (students.reduce((a, s) => a + s.gpa, 0) / students.length).toFixed(2)
       : 0;
 
+    // Real strand enrollment counts from DB
+    const strandCounts = await Student.aggregate([
+      { $match: { status: 'Active', strand: { $exists: true, $ne: null, $ne: '' } } },
+      { $group: { _id: '$strand', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+    ]);
+
+    // Monthly attendance: average attendance grouped by enrollment month
+    const monthlyAttendance = await Student.aggregate([
+      { $match: { status: 'Active' } },
+      { $group: {
+          _id: { $month: '$createdAt' },
+          avg: { $avg: '$attendance' }
+      }},
+      { $sort: { '_id': 1 } },
+    ]);
+
     res.json({
       students:  { total: totalStudents, active: activeStudents },
       teachers:  { total: totalTeachers, active: activeTeachers },
@@ -51,6 +68,8 @@ router.get('/stats', async (req, res) => {
       exams:     { total: totalExams, upcoming: upcomingExams },
       fees:      { total: totalFeeAmount, collected: totalFeePaid, due: totalFeeDue, overdue: overdueCount },
       academics: { avgAttendance, avgGPA },
+      strandCounts,
+      monthlyAttendance,
       upcomingEvents,
       recentAnnouncements,
       recentStudents,

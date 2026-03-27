@@ -472,14 +472,7 @@ export function WorkImmersion() {
 // ─── Behavior Log ─────────────────────────────────────────────────────────────
 const INCIDENT_TYPES = ['Tardiness','Absences','Dress Code','Disruption','Bullying','Vandalism','Cheating','Misconduct','Positive Behavior','Award/Recognition'];
 
-const INITIAL_INCIDENTS = [
-  { id:1, student:'Maria Santos',  grade:'Grade 11', strand:'STEM',  type:'Tardiness',        date:'2026-03-10', severity:'Minor',    action:'Verbal Warning',     resolved:true  },
-  { id:2, student:'Carlos Reyes',  grade:'Grade 12', strand:'ABM',   type:'Dress Code',        date:'2026-03-12', severity:'Minor',    action:'Written Notice',     resolved:true  },
-  { id:3, student:'Ana Dela Cruz', grade:'Grade 11', strand:'HUMSS', type:'Disruption',        date:'2026-03-14', severity:'Moderate', action:'Parent Conference',  resolved:false },
-  { id:4, student:'Jose Garcia',   grade:'Grade 12', strand:'TVL',   type:'Absences',          date:'2026-03-15', severity:'Moderate', action:'Counseling Session', resolved:false },
-  { id:5, student:'Rosa Aquino',   grade:'Grade 11', strand:'STEM',  type:'Award/Recognition', date:'2026-03-18', severity:'Positive', action:'Recognition',        resolved:true  },
-  { id:6, student:'Miguel Torres', grade:'Grade 12', strand:'GAS',   type:'Positive Behavior', date:'2026-03-20', severity:'Positive', action:'Certificate',        resolved:true  },
-];
+const INITIAL_INCIDENTS = [];
 
 const SEV_COLOR = { Minor:'var(--amber)', Moderate:'var(--orange)', Severe:'var(--rose)', Positive:'var(--green)' };
 
